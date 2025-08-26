@@ -1,4 +1,4 @@
-# H-mode Classification for Fusion Plasmas
+# Fusion Plasma Confinement State Classification
 
 A machine learning approach to classify H-mode vs L-mode confinement regimes in tokamak plasmas, achieving **98.71% accuracy** on DIII-D data.
 

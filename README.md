@@ -1,6 +1,6 @@
 # Fusion Plasma Confinement State Classification
 
-A machine learning approach to classify H-mode vs L-mode confinement regimes in tokamak plasmas, achieving **98.71% accuracy** on DIII-D data.
+A machine learning approach to classify H-mode vs L-mode confinement regimes in tokamak plasmas, achieving **98.71% accuracy** on DIII-D data. Please contact demetriadoudespina@gmail.com for provision of the OMFIT_Hmode_Studies.pkl file. 
 
 ## 🔬 Project Overview
 
@@ -223,7 +223,7 @@ MIT License - see LICENSE file for details.
 
 - **DIII-D National Fusion Facility** for providing the experimental data
 - **OMFIT Framework** for baseline comparison and data processing tools
-- **Fusion Energy Sciences Program** for supporting this research
+- **University College London** for supporting this research
 
 ---
 
@@ -233,6 +233,6 @@ MIT License - see LICENSE file for details.
   title={Enhanced Machine Learning Classification of H-mode Confinement in Tokamak Plasmas},
   author={MSc Plasma Physics Project},
   year={2024},
-  url={https://github.com/username/hmode-classifier}
+  url={https://github.com/despinademetriadou/hmode-classifier}
 }
 ```

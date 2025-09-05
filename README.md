@@ -1,10 +1,10 @@
 # Fusion Plasma Confinement State Classification
 
-A machine learning approach to classify H-mode vs L-mode confinement regimes in tokamak plasmas, achieving **98.71% accuracy** on DIII-D data. Please contact demetriadoudespina@gmail.com for provision of the OMFIT_Hmode_Studies.pkl file. 
+A machine learning approach to classify H-mode vs L-mode confinement regimes, achieving **98.71% accuracy** on DIII-D data. Please contact demetriadoudespina@gmail.com for provision of the OMFIT_Hmode_Studies.pkl file for the raw data. 
 
-## 🔬 Project Overview
+## Project Overview
 
-This repository contains the final implementation of an enhanced machine learning model for automated H-mode classification in fusion plasmas. The model significantly outperforms existing methods like OMFIT (91.1% accuracy) by using physics-informed feature engineering and advanced gradient-based analysis.
+This repository contains the final implementation of an enhanced machine learning model for automated H-mode classification in fusion plasmas. The model significantly outperforms the existing OMFIT H-mode\_studies preprocessing tool (91.1% accuracy) by using physics-informed feature engineering and advanced gradient-based analysis.
 
 ### Key Achievements
 - **98.71% test accuracy** on DIII-D tokamak data
@@ -12,14 +12,14 @@ This repository contains the final implementation of an enhanced machine learnin
 - **Gradient Boosting Classifier** with optimized hyperparameters
 - **Comprehensive uncertainty quantification** and validation
 
-## 📊 Model Performance
+## Model Performance
 
 | Method | Accuracy | Features | Data Processing |
 |--------|----------|----------|----------------|
 | **This Work** | **98.71%** | 25 enhanced physics features | Raw profile analysis |
 | OMFIT Baseline | 91.1% | Basic gradient features | Pre-processed profiles |
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -60,7 +60,7 @@ python hmode_classifier.py
 
 This runs the complete pipeline: data loading → feature engineering → model training → evaluation → model saving.
 
-## 🧠 Model Architecture
+## Model Architecture
 
 ### Feature Engineering Pipeline
 
@@ -100,7 +100,7 @@ GradientBoostingClassifier(
 )
 ```
 
-## 🔬 Scientific Methodology
+## Scientific Methodology
 
 ### Physics-Based Feature Design
 
@@ -126,7 +126,7 @@ The feature engineering is grounded in tokamak physics:
 - **Overfitting analysis**: Validation curves and early stopping
 - **Bootstrap stability**: Model consistency across different data samples
 
-## 📈 Key Results
+## Key Results
 
 ### Classification Performance
 ```
@@ -148,7 +148,7 @@ Top 5 most important features:
 4. **max_combined_grad** (0.0987) - Combined gradient magnitude
 5. **Te_height** (0.0823) - Temperature pedestal height
 
-## 🏗️ Code Structure
+## Code Structure
 
 ```
 hmode_classifier.py
@@ -163,7 +163,7 @@ hmode_classifier.py
 └── main()                  # Complete pipeline demo
 ```
 
-## 🔬 Physics Background
+## Physics Background
 
 ### H-mode Confinement
 
@@ -181,7 +181,7 @@ Traditional classification methods struggle with:
 - **Temporal Evolution**: Dynamic transitions between modes
 - **Measurement Noise**: Diagnostic uncertainties and artifacts
 
-## 🚧 Future Work
+## Future Work
 
 ### Immediate Extensions
 - Integration of measurement uncertainties (`Rawtemp_e`, `Rawdensity_e`, `Rawpress_e`)
@@ -199,14 +199,14 @@ Traditional classification methods struggle with:
 - **Causal Machine Learning**: Understanding H-mode trigger mechanisms
 - **Integrated Control**: Real-time plasma scenario optimization
 
-## 📚 References
+## References
 
 1. **ITER Physics Basis** - Progress in the ITER Physics Basis, Nuclear Fusion (2007)
 2. **H-mode Discovery** - Wagner et al., Physical Review Letters (1982)
 3. **DIII-D Thomson Scattering** - Eldon et al., Review of Scientific Instruments (2018)
 4. **Machine Learning in Fusion** - Kates-Harbeck et al., Nature (2019)
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Areas of interest:
 - Feature engineering improvements
@@ -215,15 +215,14 @@ We welcome contributions! Areas of interest:
 - Real-time implementation
 - Physics-informed constraints
 
-## 📄 License
+## License
 
-MIT License - see LICENSE file for details.
+MIT License
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- **DIII-D National Fusion Facility** for providing the experimental data
-- **OMFIT Framework** for baseline comparison and data processing tools
-- **University College London** for supporting this research
+- **DIII-D National Fusion Facility**: Dr Vacslav Glukhov and Dr Randall Clark for their incredible patience and guidance, as well as for providing the labelled experimental data
+- **University College London**: Dr Dmitry Adamskiy for supporting this research and providing guidance and oversight throughout
 
 ---
 

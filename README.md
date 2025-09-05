@@ -1,6 +1,6 @@
 # Fusion Plasma Confinement State Classification
 
-A machine learning approach to classify H-mode vs L-mode confinement regimes, achieving **98.71% accuracy** on DIII-D data. Please contact demetriadoudespina@gmail.com for provision of the OMFIT_Hmode_Studies.pkl file for the raw data. 
+A machine learning approach to classify H-mode vs L-mode confinement regimes, achieving **98.71% accuracy** on DIII-D data. This represents a preliminary result but sets a solid base for creating a more sophisticated model in the future. Please contact demetriadoudespina@gmail.com for provision of the OMFIT_Hmode_Studies.pkl file for the raw data. 
 
 ## Project Overview
 
@@ -206,14 +206,6 @@ Traditional classification methods struggle with:
 3. **DIII-D Thomson Scattering** - Eldon et al., Review of Scientific Instruments (2018)
 4. **Machine Learning in Fusion** - Kates-Harbeck et al., Nature (2019)
 
-## Contributing
-
-We welcome contributions! Areas of interest:
-- Feature engineering improvements
-- Alternative ML architectures  
-- Cross-machine validation
-- Real-time implementation
-- Physics-informed constraints
 
 ## License
 

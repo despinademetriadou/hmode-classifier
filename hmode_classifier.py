@@ -14,19 +14,21 @@ Requirements:
 Usage:
     python hmode_classifier.py
 
-Author: MSc Plasma Physics Project
+Author: Despina Demetriadou
 """
 
 import numpy as np
 import pickle
 import warnings
-from scipy import interpolate, ndimage
+from scipy import interpolate
+from scipy.signal import medfilt
 from scipy.stats import pearsonr
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
+import pandas as pd
 
 warnings.filterwarnings('ignore')
 
@@ -36,29 +38,41 @@ class HModeClassifier:
     Complete H-mode classification pipeline reproducing the final model.
     """
     
-    def __init__(self, data_file='OMFIT_Hmode_Studies.pkl'):
-        """Initialize the classifier with data file path."""
+    def __init__(self, data_file='OMFIT_Hmode_Studies.pkl', labels_file='Labels.xlsx'):
+        """Initialize the classifier with data file path and optional ground truth labels."""
         self.data_file = data_file
+        self.labels_file = labels_file
         self.DD_full = None
+        self.ground_truth_labels = None
         self.model = None
         self.scaler = StandardScaler()
         self.feature_names = None
         
     def load_data(self):
-        """Load the OMFIT H-mode studies dataset."""
+        """Load the OMFIT H-mode studies dataset and ground truth labels."""
         try:
             with open(self.data_file, 'rb') as f:
                 self.DD_full = pickle.load(f)
             print(f"✓ Data loaded: {len(self.DD_full)} shots available")
-            
+
             # Display sample shot structure
             sample_shot = list(self.DD_full.keys())[0]
             sample_keys = list(self.DD_full[sample_shot].keys())
             print(f"✓ Sample shot keys: {sample_keys}")
-            
+
         except FileNotFoundError:
             raise FileNotFoundError(f"Data file {self.data_file} not found. "
                                   "Please ensure OMFIT_Hmode_Studies.pkl is in the current directory.")
+
+        # Load ground truth labels if available
+        try:
+            self.ground_truth_labels = pd.read_excel(self.labels_file)
+            print(f"✓ Ground truth labels loaded: {len(self.ground_truth_labels)} entries")
+        except FileNotFoundError:
+            print(f"⚠ Warning: Ground truth labels file '{self.labels_file}' not found.")
+            print(f"  The model will use Hflag from the pickle file, but accuracy may be lower.")
+            print(f"  For best results (98%+), please provide the Labels.xlsx file.")
+            self.ground_truth_labels = None
     
     def interpolate_scaled_profile(self, shot_dict, shot, t_index=0, raw_key="Rawtemp",
                                  kernel_size=3, scale=True, method="spline", 
@@ -93,62 +107,80 @@ class HModeClassifier:
         --------
         dict : Contains 'psi' and profile arrays
         """
-        # Get raw data
-        raw_psi = shot_dict[shot]["Rawpsin"][t_index]
-        raw_profile = shot_dict[shot][raw_key][t_index]
-        
-        # Remove NaN values
-        valid_mask = ~(np.isnan(raw_psi) | np.isnan(raw_profile))
-        if np.sum(valid_mask) < 3:
-            return {"psi": np.linspace(0, 1, num_points), 
+        # --- 1. Extract psin and raw profile ---
+        psin = shot_dict[shot]['Rawpsin'][t_index]
+        prof_raw = shot_dict[shot][raw_key][t_index]
+
+        # --- 2. Median filter the profile ---
+        prof_med = medfilt(prof_raw, kernel_size=kernel_size)
+
+        # --- 3. Discard trailing zeros in psin (psi outside the separatrix) ---
+        valid = np.where(psin > 0)[0]
+        if valid.size == 0:
+            return {"psi": np.linspace(0, 1, num_points),
                    raw_key: np.full(num_points, np.nan)}
-        
-        psi_clean = raw_psi[valid_mask]
-        profile_clean = raw_profile[valid_mask]
-        
-        # Sort by psi
-        sort_idx = np.argsort(psi_clean)
-        psi_sorted = psi_clean[sort_idx]
-        profile_sorted = profile_clean[sort_idx]
-        
-        # Apply median filter for smoothing
-        if kernel_size > 1:
-            profile_sorted = ndimage.median_filter(profile_sorted, size=kernel_size)
-        
-        # Scale to maximum if requested
-        if scale and np.max(profile_sorted) > 0:
-            profile_sorted = profile_sorted / np.max(profile_sorted)
-        
-        # Create output psi grid
-        psi_out = np.linspace(0, 1, num_points)
-        
-        # Interpolate
-        if len(psi_sorted) < 2:
-            profile_out = np.full(num_points, np.nan)
+        end = valid[-1] + 1
+        psin_clean = psin[:end].copy()
+        prof_clean = prof_med[:end].copy()
+
+        # --- 4. Ensure non-zero values exist ---
+        if np.all(prof_clean <= 0):
+            return {"psi": np.linspace(0, 1, num_points),
+                   raw_key: np.full(num_points, np.nan)}
+
+        # --- 5. Sort & collapse duplicates for stability ---
+        sort_idx = np.argsort(psin_clean)
+        psin_s, prof_s = psin_clean[sort_idx], prof_clean[sort_idx]
+        uniq_psin, inv = np.unique(psin_s, return_inverse=True)
+        prof_uniq = np.array([prof_s[inv==i].mean() for i in range(len(uniq_psin))])
+        psin_clean, prof_clean = uniq_psin, prof_uniq
+
+        # --- 6. Scale if requested ---
+        prof_max = prof_clean.max()
+        if prof_max <= 0:
+            prof_max = 1.0
+        if scale:
+            prof_clean = prof_clean / prof_max
+
+        # --- 7. MASK OUT ZERO OR NEGATIVE POINTS BEFORE INTERPOLATION ---
+        positive_mask = prof_clean > 0
+        if np.sum(positive_mask) < 2:
+            return {"psi": np.linspace(0, 1, num_points),
+                   raw_key: np.full(num_points, np.nan)}
+        psin_clean = psin_clean[positive_mask]
+        prof_clean = prof_clean[positive_mask]
+
+        # --- 8. Build interpolation grid ---
+        psi_out = np.linspace(psin_clean.min(), psin_clean.max(), num_points)
+
+        # --- 9. Interpolate ---
+        if method == "linear":
+            prof_out = np.interp(psi_out, psin_clean, prof_clean)
+        elif method == "spline":
+            spline = interpolate.UnivariateSpline(psin_clean, prof_clean, s=smoothing, ext=3)
+            prof_out = spline(psi_out)
         else:
-            if method == "spline" and len(psi_sorted) > 3:
-                try:
-                    tck = interpolate.splrep(psi_sorted, profile_sorted, s=smoothing)
-                    profile_out = interpolate.splev(psi_out, tck)
-                except:
-                    # Fallback to linear
-                    profile_out = np.interp(psi_out, psi_sorted, profile_sorted)
-            else:
-                profile_out = np.interp(psi_out, psi_sorted, profile_sorted)
+            prof_out = np.interp(psi_out, psin_clean, prof_clean)
         
-        # Optional plotting
+        # --- 10. Optional plotting ---
         if show_plot:
-            plt.figure(figsize=(10, 6))
-            plt.scatter(psi_clean, raw_profile[valid_mask], alpha=0.6, label='Raw data')
-            plt.plot(psi_out, profile_out, 'r-', linewidth=2, label='Interpolated')
-            plt.xlabel('ψ_N')
-            plt.ylabel(raw_key)
-            plt.title(f'Profile interpolation: Shot {shot}, t_index={t_index}')
+            plt.figure(figsize=(8, 5))
+            plt.plot(psin_clean, prof_clean, alpha=0.7,
+                     label=f'{raw_key} filtered' + (' + scaled' if scale else ''))
+            plt.plot(psi_out, prof_out, 'x-',
+                     label=f'{method.title()} interp')
+            plt.xlabel('ψₙ')
+            plt.ylabel(f'{raw_key} {"(norm.)" if scale else ""}')
+            plt.title(f'{raw_key} vs ψₙ ({method})')
+            plt.grid(True)
             plt.legend()
-            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
             plt.show()
-        
-        return {"psi": psi_out, raw_key: profile_out}
+
+        return {
+            "psi":   psi_out,
+            raw_key: prof_out,
+        }
     
     def compute_enhanced_features(self, shot_dict, shot_id, t_index, 
                                 ped_foot_psin=0.85, ped_edge_psin=0.98):
@@ -181,11 +213,11 @@ class HModeClassifier:
             # Extract profiles
             psi = Te_res["psi"]
             Te = Te_res["Rawtemp"]
-            ne = ne_res["Rawdensity"] 
+            ne = ne_res["Rawdensity"]
             pe = pe_res["Rawpress"]
-            
+
             # Check for valid profiles
-            if np.any(np.isnan([Te, ne, pe])):
+            if np.any(np.isnan(Te)) or np.any(np.isnan(ne)) or np.any(np.isnan(pe)):
                 return None
             
             # Calculate gradients
@@ -248,18 +280,36 @@ class HModeClassifier:
             
             # === OPERATIONAL SPACE FEATURES ===
             # Get OMFIT processed values for operational parameters
+            # Note: 'psin' is NOT time-indexed, must use scalar indexing
             omfit_Te = shot_dict[shot_id]["temp"][t_index]
-            omfit_ne = shot_dict[shot_id]["density"][t_index] 
+            omfit_ne = shot_dict[shot_id]["density"][t_index]
             omfit_pe = shot_dict[shot_id]["press"][t_index]
-            omfit_psi = shot_dict[shot_id]["psin"][t_index]
-            
+            # IMPORTANT FIX: 'psin' is not a time-indexed array, it's a single array for each shot
+            # Use it directly without time indexing
+            if isinstance(shot_dict[shot_id]["psin"], np.ndarray) and shot_dict[shot_id]["psin"].ndim == 1:
+                # psin is 1D array, use directly
+                omfit_psi = shot_dict[shot_id]["psin"]
+            else:
+                # Fallback: if psin has time dimension, index it
+                try:
+                    omfit_psi = shot_dict[shot_id]["psin"][t_index]
+                except (IndexError, TypeError):
+                    omfit_psi = shot_dict[shot_id]["psin"]
+
             # OMFIT gradient calculations
             omfit_valid = ~np.isnan(omfit_Te) & ~np.isnan(omfit_ne) & ~np.isnan(omfit_pe)
-            if np.sum(omfit_valid) > 10:
-                omfit_dTe = np.gradient(omfit_Te[omfit_valid], omfit_psi[omfit_valid])
-                omfit_dne = np.gradient(omfit_ne[omfit_valid], omfit_psi[omfit_valid])
-                omfit_dpe = np.gradient(omfit_pe[omfit_valid], omfit_psi[omfit_valid])
-                
+            if np.sum(omfit_valid) > 10 and len(omfit_psi) > 10:
+                # Make sure psin and profiles have compatible shapes
+                min_len = min(len(omfit_psi), np.sum(omfit_valid))
+                omfit_psi_valid = omfit_psi[:min_len]
+                omfit_Te_valid = omfit_Te[omfit_valid][:min_len]
+                omfit_ne_valid = omfit_ne[omfit_valid][:min_len]
+                omfit_pe_valid = omfit_pe[omfit_valid][:min_len]
+
+                omfit_dTe = np.gradient(omfit_Te_valid, omfit_psi_valid)
+                omfit_dne = np.gradient(omfit_ne_valid, omfit_psi_valid)
+                omfit_dpe = np.gradient(omfit_pe_valid, omfit_psi_valid)
+
                 omfit_max_grad_Te = np.max(np.abs(omfit_dTe))
                 omfit_max_grad_ne = np.max(np.abs(omfit_dne))
                 omfit_max_grad_pe = np.max(np.abs(omfit_dpe))
@@ -304,71 +354,123 @@ class HModeClassifier:
         return [
             # Core gradient features
             'max_grad_Te', 'max_grad_ne', 'max_grad_pe',
-            
-            # Pedestal structure  
+
+            # Pedestal structure
             'Te_height', 'ne_height', 'pe_height',
             'Te_edge', 'ne_edge', 'pe_edge',
-            
+
             # Profile shape
-            'Te_steepness', 'ne_steepness', 'pe_steepness', 
+            'Te_steepness', 'ne_steepness', 'pe_steepness',
             'Te_peaking', 'ne_peaking', 'pe_peaking',
-            
+
             # Curvature features
             'max_curve_Te', 'max_curve_ne', 'max_curve_pe',
-            
+
             # Multi-field coupling
             'grad_corr_Te_ne', 'grad_corr_Te_pe', 'max_combined_grad',
-            
+
             # OMFIT comparison
             'omfit_max_grad_Te', 'omfit_max_grad_ne', 'omfit_max_grad_pe'
         ]
+
+    def get_ground_truth_label(self, shot_id, time_value):
+        """
+        Get ground truth label for a specific shot and time from Labels.xlsx.
+
+        Returns:
+        --------
+        int: 0 for L-mode, 1 for H-mode, -1 if no label found or D-mode
+        """
+        if self.ground_truth_labels is None:
+            return -1
+
+        # Find matching entries for this shot
+        shot_entries = self.ground_truth_labels[
+            self.ground_truth_labels['Shot'] == shot_id
+        ]
+
+        # Check if time falls within any labeled period
+        for _, entry in shot_entries.iterrows():
+            if entry['Begin_Time'] <= time_value <= entry['End_Time']:
+                mode = entry['Mode_L0_D1_H2']
+                # Return only L-mode (0) and H-mode (2), skip D-mode (1)
+                if mode == 0:
+                    return 0  # L-mode
+                elif mode == 2:
+                    return 1  # H-mode (convert to binary)
+                else:
+                    return -1  # D-mode, skip
+
+        return -1  # No label found
     
     def build_dataset(self):
         """
         Build the complete dataset by processing all shots and time slices.
-        
+        Uses ground truth labels from Labels.xlsx if available, otherwise uses Hflag.
+
         Returns:
         --------
         dict: Contains 'features', 'labels', 'feature_names', 'shot_info'
         """
         print("Building enhanced dataset...")
-        
+
         all_features = []
         all_labels = []
         shot_info = []
-        
+
         total_shots = len(self.DD_full)
         processed = 0
-        
+        total_processed = 0
+        skipped_no_label = 0
+
+        use_ground_truth = self.ground_truth_labels is not None
+
         for shot_id in self.DD_full.keys():
             shot_data = self.DD_full[shot_id]
             n_times = len(shot_data['Times'])
-            
+            times = shot_data['Times']
+
             for t_idx in range(n_times):
+                total_processed += 1
+
+                # Get label
+                if use_ground_truth:
+                    time_value = times[t_idx]
+                    label = self.get_ground_truth_label(shot_id, time_value)
+                    if label == -1:
+                        skipped_no_label += 1
+                        continue  # Skip unlabeled or D-mode samples
+                else:
+                    # Fallback to Hflag if no ground truth
+                    label = int(shot_data['Hflag'][t_idx])
+
                 # Extract features
                 features = self.compute_enhanced_features(self.DD_full, shot_id, t_idx)
-                
+
                 if features is not None and not np.any(np.isnan(features)):
-                    # Get H-mode flag (label)
-                    h_flag = shot_data['Hflag'][t_idx]
-                    
                     all_features.append(features)
-                    all_labels.append(h_flag)
+                    all_labels.append(label)
                     shot_info.append((shot_id, t_idx))
-            
+
             processed += 1
             if processed % 100 == 0:
                 print(f"Processed {processed}/{total_shots} shots...")
-        
+
         # Convert to numpy arrays
         X = np.array(all_features)
         y = np.array(all_labels)
-        
+
         print(f"✓ Dataset built: {len(X)} samples, {X.shape[1]} features")
+        print(f"✓ Total time slices: {total_processed}, Skipped (no label): {skipped_no_label}")
         print(f"✓ Class distribution: L-mode={np.sum(y==0)}, H-mode={np.sum(y==1)}")
-        
+
+        if use_ground_truth:
+            print(f"✓ Using ground truth labels from {self.labels_file}")
+        else:
+            print(f"⚠ Using Hflag labels (accuracy may be lower without ground truth)")
+
         self.feature_names = self.get_feature_names()
-        
+
         return {
             'features': X,
             'labels': y,

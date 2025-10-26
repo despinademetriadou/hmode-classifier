@@ -1,13 +1,13 @@
-# H-mode Classification for Fusion Plasmas
+# Machine Learning Classification of Plasma Confinement Mode in the DIII-D Tokamak
 
-A machine learning approach to classify H-mode vs L-mode confinement regimes in tokamak plasmas, achieving **98.71% accuracy** on DIII-D data.
+A machine learning approach to classify H-mode vs L-mode confinement regimes in tokamak plasmas, achieving **98.7% accuracy** on expert-labelled DIII-D data. This was carried out as part of UCL's Faculty of Computer Science MSc Data Science and Machine Learning thesis.
 
 ## 🔬 Project Overview
 
-This repository contains the final implementation of an enhanced machine learning model for automated H-mode classification in fusion plasmas. The model significantly outperforms existing methods like OMFIT (91.1% accuracy) by using physics-informed feature engineering and advanced gradient-based analysis.
+This repository contains the final implementation of an enhanced machine learning model for automated H-mode classification in fusion plasmas. The model significantly outperforms existing methods, namely the OMFIT H-mode studies module (91.1% accuracy), by using physics-informed feature engineering and advanced gradient-based analysis.
 
 ### Key Achievements
-- **98.71% test accuracy** on DIII-D tokamak data
+- **98.7% test accuracy** on DIII-D tokamak data
 - **25 physics-based features** capturing pedestal structure and profile gradients
 - **Gradient Boosting Classifier** with optimized hyperparameters
 - **Comprehensive uncertainty quantification** and validation
@@ -307,18 +307,18 @@ MIT License - see LICENSE file for details.
 
 ## 🙏 Acknowledgments
 
-- **DIII-D National Fusion Facility** for providing the experimental data
-- **OMFIT Framework** for baseline comparison and data processing tools
-- **Fusion Energy Sciences Program** for supporting this research
+- **DIII-D National Fusion Facility** for providing the experimental data and being incredibly attentive and helpful throughout
+- **University College London** for their regular supervision and support
 
 ---
 
 **Citation**: If you use this code in your research, please cite:
 ```
 @misc{hmode_classifier_2024,
-  title={Enhanced Machine Learning Classification of H-mode Confinement in Tokamak Plasmas},
-  author={MSc Plasma Physics Project},
+  title={Machine Learning Classification of Plasma
+Confinement Mode in the DIII-D Tokamak},
+  author={Despina Demetriadou},
   year={2024},
-  url={https://github.com/username/hmode-classifier}
+  url={https://github.com/despinademetriadou/hmode-classifier}
 }
 ```

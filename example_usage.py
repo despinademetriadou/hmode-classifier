@@ -4,6 +4,12 @@ Example Usage of H-mode Classifier
 =================================
 
 This script demonstrates various ways to use the H-mode classification model.
+
+REQUIREMENTS:
+- OMFIT_Hmode_Studies.pkl (plasma profile data)
+- Labels.xlsx (ground truth labels - REQUIRED for 98%+ accuracy)
+
+Without Labels.xlsx, the model will only achieve ~90% accuracy.
 """
 
 from hmode_classifier import HModeClassifier
@@ -14,14 +20,18 @@ import matplotlib.pyplot as plt
 def basic_usage_example():
     """Basic usage: train model and make predictions."""
     print("=== BASIC USAGE EXAMPLE ===")
-    
-    # Initialize classifier
-    classifier = HModeClassifier('OMFIT_Hmode_Studies.pkl')
-    
+
+    # Initialize classifier with both data files
+    # Labels.xlsx is REQUIRED for 98%+ accuracy
+    classifier = HModeClassifier(
+        data_file='OMFIT_Hmode_Studies.pkl',
+        labels_file='Labels.xlsx'
+    )
+
     # Load data and build dataset
     classifier.load_data()
     dataset = classifier.build_dataset()
-    
+
     # Train model
     results = classifier.train_final_model(dataset['features'], dataset['labels'])
     
@@ -125,12 +135,15 @@ def feature_extraction_example(classifier):
 def save_load_example(classifier):
     """Demonstrate model saving and loading."""
     print("\n=== SAVE/LOAD EXAMPLE ===")
-    
+
     # Save the trained model
     classifier.save_model('example_model.pkl')
-    
+
     # Create a new classifier instance and load the model
-    new_classifier = HModeClassifier()
+    new_classifier = HModeClassifier(
+        data_file='OMFIT_Hmode_Studies.pkl',
+        labels_file='Labels.xlsx'
+    )
     new_classifier.load_model('example_model.pkl')
     
     print("Model successfully saved and loaded!")
@@ -211,11 +224,16 @@ def main():
         print("✓ Model achieves {:.2f}% accuracy on test data".format(
             results['test_accuracy'] * 100))
         
-    except FileNotFoundError:
-        print("❌ Error: OMFIT_Hmode_Studies.pkl not found!")
-        print("Please ensure the data file is in the current directory.")
+    except FileNotFoundError as e:
+        print(f"❌ Error: Required data file not found!")
+        print("Please ensure BOTH files are in the current directory:")
+        print("  - OMFIT_Hmode_Studies.pkl (~423 MB)")
+        print("  - Labels.xlsx (~26 KB) - REQUIRED for 98%+ accuracy")
+        print(f"\nDetails: {e}")
     except Exception as e:
         print(f"❌ Error running examples: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

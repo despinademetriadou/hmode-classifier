@@ -6,10 +6,12 @@ scipy>=1.7.0
 scikit-learn>=1.0.0
 matplotlib>=3.4.0
 
-# Optional for enhanced functionality
+# REQUIRED: For reading ground truth labels from Labels.xlsx
 pandas>=1.3.0
+openpyxl>=3.0.0
+
+# Optional for enhanced functionality
 seaborn>=0.11.0
 jupyter>=1.0.0
 
-# For model persistence
-pickle-mixin>=1.0.2
+# Note: pickle is part of Python standard library, no install needed
